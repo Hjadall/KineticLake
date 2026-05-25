@@ -16,22 +16,32 @@ class TestBronzeRawDataIngestion:
     @pytest.fixture
     def raw_sensor_data(self, spark):
         """Create sample raw sensor data."""
+        from pyspark.sql.types import StructType, StructField, StringType, DoubleType, LongType, TimestampType, MapType
+
+        schema = StructType(
+            [
+                StructField("sensor", StringType(), False),
+                StructField("data", MapType(StringType(), StringType()), True),
+                StructField("ts", TimestampType(), False),
+            ]
+        )
+
         data = [
             {
                 "sensor": "IMU",
-                "data": {"accel_x": 9.8, "accel_y": -2.1, "gyro_z": 0.05},
+                "data": {"accel_x": "9.8", "accel_y": "-2.1", "gyro_z": "0.05"},
                 "ts": datetime(2026, 5, 10, 14, 32, 27),
             },
             {
                 "sensor": "IMU",
-                "data": {"accel_x": 9.9, "accel_y": -2.2, "gyro_z": 0.06},
+                "data": {"accel_x": "9.9", "accel_y": "-2.2", "gyro_z": "0.06"},
                 "ts": datetime(2026, 5, 10, 14, 32, 28),
             },
-            {"sensor": "ENCODER", "data": {"ticks": 1250}, "ts": datetime(2026, 5, 10, 14, 32, 27)},
-            {"sensor": "GPS", "data": {"lat": 40.7128, "lon": -74.0060}, "ts": datetime(2026, 5, 10, 14, 32, 27)},
-            {"sensor": "GPS", "data": {"lat": 40.7138, "lon": -74.0050}, "ts": datetime(2026, 5, 10, 14, 32, 28)},
+            {"sensor": "ENCODER", "data": {"ticks": "1250"}, "ts": datetime(2026, 5, 10, 14, 32, 27)},
+            {"sensor": "GPS", "data": {"lat": "40.7128", "lon": "-74.0060"}, "ts": datetime(2026, 5, 10, 14, 32, 27)},
+            {"sensor": "GPS", "data": {"lat": "40.7138", "lon": "-74.0050"}, "ts": datetime(2026, 5, 10, 14, 32, 28)},
         ]
-        return spark.createDataFrame(data)
+        return spark.createDataFrame(data, schema=schema)
 
     def test_bronze_robotics_raw_ingestion(self, spark, raw_sensor_data):
         """Test that raw sensor data is ingested correctly."""
@@ -134,14 +144,24 @@ class TestBronzeRawDataIngestion:
 
     def test_null_handling_in_nested_fields(self, spark):
         """Test handling of null values in nested data fields."""
+        from pyspark.sql.types import StructType, StructField, StringType, TimestampType, MapType
+
+        schema = StructType(
+            [
+                StructField("sensor", StringType(), False),
+                StructField("data", MapType(StringType(), StringType()), True),
+                StructField("ts", TimestampType(), False),
+            ]
+        )
+
         data_with_nulls = [
             {
                 "sensor": "IMU",
-                "data": {"accel_x": 9.8, "accel_y": None, "gyro_z": 0.05},
+                "data": {"accel_x": "9.8", "accel_y": None, "gyro_z": "0.05"},
                 "ts": datetime(2026, 5, 10, 14, 32, 27),
             },
         ]
-        df = spark.createDataFrame(data_with_nulls)
+        df = spark.createDataFrame(data_with_nulls, schema=schema)
 
         imu_df = df.filter(F.col("sensor") == "IMU").select(
             F.col("data.accel_x").cast("double").alias("accel_x"),
@@ -154,27 +174,31 @@ class TestBronzeRawDataIngestion:
 
     def test_large_batch_data(self, spark):
         """Test processing larger batch of sensor data."""
+        from datetime import timedelta
+
         data = []
+        base_time = datetime(2026, 5, 10, 14, 32, 27)
+
         for i in range(1000):
             sensor_type = ["IMU", "ENCODER", "GPS"][i % 3]
+            current_time = base_time + timedelta(seconds=i)
+
             if sensor_type == "IMU":
                 data.append(
                     {
                         "sensor": sensor_type,
-                        "data": {"accel_x": 9.8 + i * 0.001, "accel_y": -2.1, "gyro_z": 0.05},
-                        "ts": datetime(2026, 5, 10, 14, 32, 27 + i),
+                        "data": {"accel_x": str(9.8 + i * 0.001), "accel_y": "-2.1", "gyro_z": "0.05"},
+                        "ts": current_time,
                     }
                 )
             elif sensor_type == "ENCODER":
-                data.append(
-                    {"sensor": sensor_type, "data": {"ticks": 1000 + i}, "ts": datetime(2026, 5, 10, 14, 32, 27 + i)}
-                )
+                data.append({"sensor": sensor_type, "data": {"ticks": str(1000 + i)}, "ts": current_time})
             else:
                 data.append(
                     {
                         "sensor": sensor_type,
-                        "data": {"lat": 40.7128 + i * 0.0001, "lon": -74.0060 + i * 0.0001},
-                        "ts": datetime(2026, 5, 10, 14, 32, 27 + i),
+                        "data": {"lat": str(40.7128 + i * 0.0001), "lon": str(-74.0060 + i * 0.0001)},
+                        "ts": current_time,
                     }
                 )
 

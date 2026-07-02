@@ -4,7 +4,7 @@ resources:
       name: Silver_layer
       libraries:
         - glob:
-            include: ../src/transformations/**
+            include: ../src/silver/transformations/**
       catalog: iot_data
       channel: CURRENT
       continuous: false

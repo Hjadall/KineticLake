@@ -3,7 +3,7 @@ name: CD - Deploy to Databricks
 # 1. THE TRIGGER: Wait for the CI pipeline to finish
 on:
   workflow_run:
-    workflows: ["CI - Test and Lint"] # Must match the 'name:' of your ci.yml exactly
+    workflows: ["CI - Test and Lint"] # Must match the 'name:' of ci.yml exactly
     types:
       - completed
     branches:
